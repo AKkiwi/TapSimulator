@@ -3,7 +3,7 @@
 -- ============================================
 
 -- Charger la logique de triche
-local CheatLogic = loadstring(game:HttpGet('YOUR_CHEATLOGIC_URL_HERE'))()
+local CheatLogic = loadstring(game:HttpGet('https://raw.githubusercontent.com/AKkiwi/TapSimulator/refs/heads/master/Triche.lua'))()
 -- OU si vous utilisez un module local:
 -- local CheatLogic = require(script.Parent.CheatLogic)
 
@@ -16,7 +16,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "🚀 TapSim Auto-Farm AFK",
     LoadingTitle = "TapSim Exploit",
-    LoadingSubtitle = "by maxoupixo4",
+    LoadingSubtitle = "by AKkiwi",
     ConfigurationSaving = {
         Enabled = true,
         FileName = "TapSimConfig"
