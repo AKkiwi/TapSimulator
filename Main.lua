@@ -52,24 +52,28 @@ resultBox.Text = "Appuyez sur 'Lancer le Dump'..."
 resultBox.Parent = mainFrame
 
 -----------------------------------------------------------
--- LES BOUTONS (Mise à jour layout)
+-- LES BOUTONS (Même logique pour tous)
 -----------------------------------------------------------
 
 -- 1. Bouton LANCER (Gauche)
 local dumpButton = Instance.new("TextButton")
+dumpButton.Name = "DumpButton"
 dumpButton.Size = UDim2.new(0.3, 0, 0.1, 0)
 dumpButton.Position = UDim2.new(0.025, 0, 0.88, 0)
 dumpButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+dumpButton.BorderSizePixel = 0
 dumpButton.Text = "LANCER"
 dumpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 dumpButton.TextScaled = true
 dumpButton.Parent = mainFrame
 
--- 2. Bouton COPIER (Milieu) - NOUVEAU
+-- 2. Bouton COPIER (Milieu)
 local copyButton = Instance.new("TextButton")
+copyButton.Name = "CopyButton"
 copyButton.Size = UDim2.new(0.3, 0, 0.1, 0)
 copyButton.Position = UDim2.new(0.35, 0, 0.88, 0)
-copyButton.BackgroundColor3 = Color3.fromRGB(255, 170, 0) -- Orange
+copyButton.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
+copyButton.BorderSizePixel = 0
 copyButton.Text = "COPIER TOUT"
 copyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 copyButton.TextScaled = true
@@ -77,9 +81,11 @@ copyButton.Parent = mainFrame
 
 -- 3. Bouton FERMER (Droite)
 local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
 closeButton.Size = UDim2.new(0.3, 0, 0.1, 0)
 closeButton.Position = UDim2.new(0.675, 0, 0.88, 0)
 closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeButton.BorderSizePixel = 0
 closeButton.Text = "FERMER"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.TextScaled = true
