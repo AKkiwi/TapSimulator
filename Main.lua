@@ -11,6 +11,9 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local TARGET_SERVICES = {Workspace, ReplicatedStorage, Players}
 local TARGET_CLASSES = {"ScreenGui", "TextBox", "RemoteEvent", "RemoteFunction", "ModuleScript", "LocalScript"}
 
+-- VARIABLE GLOBALE POUR STOCKER LE TEXTE COMPLET
+local fullDumpText = ""
+
 -- Création de l'interface graphique (GUI)
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "AuditDumperGUI"
@@ -52,7 +55,7 @@ resultBox.Text = "Appuyez sur 'Lancer le Dump'..."
 resultBox.Parent = mainFrame
 
 -----------------------------------------------------------
--- LES BOUTONS (Même logique pour tous)
+-- LES BOUTONS
 -----------------------------------------------------------
 
 -- 1. Bouton LANCER (Gauche)
@@ -137,36 +140,74 @@ local function runDump()
     end
     
     finalOutput = finalOutput .. "\n-- FIN DU DUMP --"
+    
+    -- STOCKER LE TEXTE COMPLET DANS LA VARIABLE GLOBALE
+    fullDumpText = finalOutput
+    
+    -- Afficher dans la TextBox (peut être tronqué visuellement)
     resultBox.Text = finalOutput
 end
 
 -----------------------------------------------------------
--- LOGIQUE COPIER (Safe & Unsafe)
+-- LOGIQUE COPIER (Utilise fullDumpText au lieu de resultBox.Text)
 -----------------------------------------------------------
 
 local function copyText()
-    local textToCopy = resultBox.Text
+    -- UTILISER LA VARIABLE GLOBALE AU LIEU DU TEXTE DE LA TEXTBOX
+    local textToCopy = fullDumpText
     local success = false
     
+    -- Vérifier qu'on a bien du contenu
+    if textToCopy == "" or textToCopy == "Appuyez sur 'Lancer le Dump'..." then
+        copyButton.Text = "PAS DE DUMP !"
+        task.wait(1)
+        copyButton.Text = "COPIER TOUT"
+        return
+    end
+    
     -- Méthode 1 : Essai avec fonction d'injecteur (setclipboard)
-    -- Utile si tu testes avec des outils de triche pour l'audit
     pcall(function()
         if setclipboard then
             setclipboard(textToCopy)
-            copyButton.Text = "COPIÉ !"
+            copyButton.Text = "COPIÉ ! (" .. #textToCopy .. " car.)"
             success = true
-            task.wait(1)
+            task.wait(2)
             copyButton.Text = "COPIER TOUT"
         end
     end)
     
-    -- Méthode 2 : Fallback Standard Roblox (Selection)
+    -- Méthode 2 : Fallback - Créer une TextBox temporaire avec tout le texte
     if not success then
-        resultBox:CaptureFocus() -- Force le focus sur la boite
-        resultBox.CursorPosition = #resultBox.Text + 1 -- Met le curseur à la fin
-        resultBox.SelectionStart = 1 -- Sélectionne depuis le début
-        -- Sur Android, cela devrait surligner tout le texte.
-        -- L'utilisateur n'a plus qu'à taper "Copier" sur son clavier.
+        -- Détruire l'ancienne si elle existe
+        local oldTemp = screenGui:FindFirstChild("TempCopyBox")
+        if oldTemp then oldTemp:Destroy() end
+        
+        -- Créer une TextBox invisible avec TOUT le texte
+        local tempBox = Instance.new("TextBox")
+        tempBox.Name = "TempCopyBox"
+        tempBox.Size = UDim2.new(0, 1, 0, 1)
+        tempBox.Position = UDim2.new(0, -1000, 0, -1000) -- Hors écran
+        tempBox.Text = textToCopy
+        tempBox.ClearTextOnFocus = false
+        tempBox.MultiLine = true
+        tempBox.Parent = screenGui
+        
+        -- Forcer la sélection de TOUT le texte
+        tempBox:CaptureFocus()
+        tempBox.CursorPosition = #textToCopy + 1
+        tempBox.SelectionStart = 1
+        
+        copyButton.Text = "SÉLECTIONNÉ !"
+        task.wait(0.5)
+        copyButton.Text = "COPIER MANUELLEMENT"
+        
+        -- Nettoyer après 10 secondes
+        task.delay(10, function()
+            if tempBox and tempBox.Parent then
+                tempBox:Destroy()
+                copyButton.Text = "COPIER TOUT"
+            end
+        end)
     end
 end
 
