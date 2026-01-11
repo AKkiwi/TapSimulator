@@ -1,10 +1,12 @@
 ﻿-- ============================================
--- TAPSIM AUTO-FARM AFK - RAYFIELD EDITION
+-- TAPSIM AUTO-FARM AFK - FIXED UI EDITION
 -- ============================================
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 local gui = player:WaitForChild("PlayerGui")
@@ -43,20 +45,121 @@ local Stats = {
 }
 
 -- ============================================
--- LOAD RAYFIELD
+-- LOAD RAYFIELD & UI FIXES
 -- ============================================
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
     Name = "🚀 TapSim Auto-Farm AFK",
-    LoadingTitle = "TapSim Exploit",
-    LoadingSubtitle = "by maxoupixo4",
+    LoadingTitle = "TapSim Audit",
+    LoadingSubtitle = "UI Fix by CuddlyTrain Method",
     ConfigurationSaving = {
         Enabled = true,
-        FileName = "TapSimConfig"
-    }
+        FileName = "TapSimConfig_Fixed"
+    },
+    Discord = {
+        Enabled = false
+    },
+    KeySystem = false -- Désactivé pour faciliter l'audit
 })
+
+-- ============================================
+-- MOBILE TOGGLE BUTTON (From CuddlyTrain)
+-- ============================================
+
+local function create_toggle_button()
+    -- Nettoyage des anciens boutons s'ils existent
+    for _, child in pairs(CoreGui:GetChildren()) do
+        if child.Name == "TapSimToggleButton" then child:Destroy() end
+    end
+
+    local screen_gui = Instance.new("ScreenGui")
+    screen_gui.Name = "TapSimToggleButton"
+    screen_gui.ResetOnSpawn = false
+    screen_gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screen_gui.Parent = CoreGui
+    
+    local button = Instance.new("TextButton")
+    button.Name = "ToggleButton"
+    button.Size = UDim2.new(0, 50, 0, 50) -- Un peu plus petit pour ne pas gêner
+    button.Position = UDim2.new(1, -60, 0.5, -25)
+    button.BackgroundColor3 = Color3.fromRGB(255, 192, 203) -- Rose CuddlyTrain
+    button.BorderSizePixel = 0
+    button.Font = Enum.Font.GothamBold
+    button.Text = "🚀" -- Icône modifiée pour correspondre au thème TapSim
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextSize = 25
+    button.Parent = screen_gui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = button
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(200, 150, 160)
+    stroke.Thickness = 2
+    stroke.Parent = button
+    
+    -- Toggle l'UI Rayfield
+    button.Activated:Connect(function()
+        pcall(function()
+            Rayfield:Toggle() -- Utilisation de la méthode native de Rayfield
+        end)
+        
+        -- Animation simple
+        button.Size = UDim2.new(0, 45, 0, 45)
+        task.wait(0.1)
+        button.Size = UDim2.new(0, 50, 0, 50)
+    end)
+    
+    -- Logic de Dragging (Mobile + PC)
+    local dragging = false
+    local drag_input, drag_start, start_pos
+    
+    local function update(input)
+        local delta = input.Position - drag_start
+        button.Position = UDim2.new(
+            start_pos.X.Scale,
+            start_pos.X.Offset + delta.X,
+            start_pos.Y.Scale,
+            start_pos.Y.Offset + delta.Y
+        )
+    end
+    
+    button.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            drag_start = input.Position
+            start_pos = button.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    button.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or 
+           input.UserInputType == Enum.UserInputType.Touch then
+            drag_input = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input == drag_input and dragging then
+            update(input)
+        end
+    end)
+    
+    return screen_gui
+end
+
+-- Création du bouton
+create_toggle_button()
 
 -- ============================================
 -- UTILITY FUNCTIONS
@@ -109,7 +212,6 @@ local function findObfuscatedRemotes()
     
     if obfFolder then
         local eventsFolder = obfFolder:FindFirstChild("Events")
-        local functionsFolder = obfFolder:FindFirstChild("Functions")
         
         if eventsFolder then
             local allEvents = eventsFolder:GetChildren()
@@ -498,10 +600,10 @@ MiscTab:CreateButton({
 -- INIT
 -- ============================================
 
-notify("🚀 TapSim Auto-Farm", "Chargement...", 3)
+notify("🚀 TapSim Auto-Farm", "Mobile UI Fix Loaded", 3)
 
 -- Find remotes on startup
-task.wait(2)
+task.wait(1)
 findObfuscatedRemotes()
 
 -- Stats update loop
@@ -522,13 +624,4 @@ task.spawn(function()
     end
 end)
 
-notify("✅ Loaded", "TapSim Auto-Farm ready!", 3)
-print("=" .. string.rep("=", 60))
-print("TapSim Auto-Farm AFK - Loaded Successfully")
-print("Remotes found:")
-print("  Click:", Config.clickRemote and Config.clickRemote.Name or "NOT FOUND")
-print("  Rebirth:", Config.rebirthRemote and Config.rebirthRemote.Name or "NOT FOUND")
-print("  Purchase:", Config.purchaseRemote and "OK" or "NOT FOUND")
-print("  ForeverPack:", Config.foreverPackClaim and "OK" or "NOT FOUND")
-print("  PetAttack:", Config.petAttackEvent and "OK" or "NOT FOUND")
-print("=" .. string.rep("=", 60))
+print("TapSim Auto-Farm AFK - Fixed UI Loaded")
