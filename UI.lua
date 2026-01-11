@@ -3,7 +3,7 @@
 -- ============================================
 
 -- Charger la logique de triche
-local CheatLogic = loadstring(game:HttpGet('https://raw.githubusercontent.com/AKkiwi/TapSimulator/refs/heads/master/Triche.lua'))()
+local CheatLogic = loadstring(game:HttpGet('https://raw.githubusercontent.com/AKkiwi/TapSimulator/refs/heads/master/CheatLogic.lua'))()
 -- OU si vous utilisez un module local:
 -- local CheatLogic = require(script.Parent.CheatLogic)
 
