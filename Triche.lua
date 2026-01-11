@@ -1,128 +1,16 @@
 ﻿-- ============================================
--- TAPSIM AUTO-FARM - FULL AUDIT (ANDROID FIX)
+-- TAPSIM AUTO-FARM AFK - RAYFIELD EDITION
 -- ============================================
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local gui = playerGui -- Raccourci pour le script original
+local gui = player:WaitForChild("PlayerGui")
 
 -- ============================================
--- 1. SYSTEME UI MOBILE (ANDROID SAFE)
--- ============================================
-
-local RayfieldLib = nil
-local RayfieldWindow = nil
-
-local function create_mobile_button()
-    -- Nettoyage préventif
-    pcall(function()
-        if playerGui:FindFirstChild("TapSimMobileGUI") then
-            playerGui.TapSimMobileGUI:Destroy()
-        end
-    end)
-
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "TapSimMobileGUI"
-    screenGui.ResetOnSpawn = false 
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenGui.DisplayOrder = 10000 
-    screenGui.Parent = playerGui
-
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Name = "ToggleUI"
-    toggleBtn.Size = UDim2.new(0, 50, 0, 50)
-    toggleBtn.Position = UDim2.new(0.85, 0, 0.4, 0) 
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 20, 147) -- Rose Flashy
-    toggleBtn.Text = "MENU"
-    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.Font = Enum.Font.FredokaOne
-    toggleBtn.TextSize = 14
-    toggleBtn.BorderSizePixel = 2
-    toggleBtn.Parent = screenGui
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
-    corner.Parent = toggleBtn
-
-    -- Fonction Toggle
-    toggleBtn.MouseButton1Click:Connect(function()
-        if RayfieldLib then
-            pcall(function()
-                RayfieldLib:Toggle()
-            end)
-        else
-            toggleBtn.Text = "LOAD..."
-            print("⚠️ Rayfield n'est pas encore chargé ou a échoué.")
-        end
-    end)
-
-    -- Système Drag & Drop
-    local dragging, dragInput, dragStart, startPos
-    toggleBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = toggleBtn.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    toggleBtn.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - dragStart
-            toggleBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    
-    return toggleBtn
-end
-
-local mobileBtn = create_mobile_button()
-
--- ============================================
--- 2. CHARGEMENT RAYFIELD SECURISÉ
--- ============================================
-
-local success, result = pcall(function()
-    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-end)
-
-if not success or not result then
-    warn("❌ ECHEC chargement Rayfield: " .. tostring(result))
-    mobileBtn.Text = "ERROR"
-    mobileBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    return -- Arrête le script ici si l'UI ne charge pas
-end
-
-RayfieldLib = result
-print("✅ Rayfield chargé avec succès")
-
-RayfieldWindow = RayfieldLib:CreateWindow({
-    Name = "🚀 TapSim Auto-Farm (Audit)",
-    LoadingTitle = "TapSim Exploit",
-    LoadingSubtitle = "Full Logic + Mobile Fix",
-    ConfigurationSaving = {
-        Enabled = true,
-        FileName = "TapSimAuditConfig"
-    },
-    Discord = { Enabled = false },
-    KeySystem = false
-})
-
--- ============================================
--- 3. CONFIGURATION & VARIABLES (CODE ORIGINAL)
+-- CONFIGURATION
 -- ============================================
 
 local Config = {
@@ -145,6 +33,7 @@ local Config = {
     petAttackEvent = ReplicatedStorage:FindFirstChild("PetAttackEvent"),
 }
 
+-- Stats tracking
 local Stats = {
     clicks = 0,
     rebirths = 0,
@@ -154,11 +43,27 @@ local Stats = {
 }
 
 -- ============================================
--- 4. FONCTIONS UTILITAIRES
+-- LOAD RAYFIELD
+-- ============================================
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "🚀 TapSim Auto-Farm AFK",
+    LoadingTitle = "TapSim Exploit",
+    LoadingSubtitle = "by maxoupixo4",
+    ConfigurationSaving = {
+        Enabled = true,
+        FileName = "TapSimConfig"
+    }
+})
+
+-- ============================================
+-- UTILITY FUNCTIONS
 -- ============================================
 
 local function notify(title, content, duration)
-    RayfieldLib:Notify({
+    Rayfield:Notify({
         Title = title,
         Content = content,
         Duration = duration or 3,
@@ -171,13 +76,20 @@ local function updateStats()
         local clicks = player.leaderstats:FindFirstChild("Clicks")
         local rebirths = player.leaderstats:FindFirstChild("Rebirths")
         
-        if clicks then Stats.clicks = tonumber(clicks.Value) or 0 end
-        if rebirths then Stats.rebirths = tonumber(rebirths.Value) or 0 end
+        if clicks then
+            local clickValue = tonumber(clicks.Value) or 0
+            Stats.clicks = clickValue
+        end
+        
+        if rebirths then
+            local rebirthValue = tonumber(rebirths.Value) or 0
+            Stats.rebirths = rebirthValue
+        end
     end
 end
 
 -- ============================================
--- 5. REMOTE FINDER (LOGIQUE COMPLETE)
+-- REMOTE FINDER
 -- ============================================
 
 local function findObfuscatedRemotes()
@@ -197,6 +109,7 @@ local function findObfuscatedRemotes()
     
     if obfFolder then
         local eventsFolder = obfFolder:FindFirstChild("Events")
+        local functionsFolder = obfFolder:FindFirstChild("Functions")
         
         if eventsFolder then
             local allEvents = eventsFolder:GetChildren()
@@ -218,6 +131,7 @@ local function findObfuscatedRemotes()
             if ui:IsA("TextButton") then
                 local name = ui.Name:lower()
                 local text = ui.Text:lower()
+                
                 if name:find("tap") or text:find("tap") or name == "Tap" then
                     Config.clickRemote = ui
                     notify("✅ Click Button", "Trouvé: " .. ui.Name, 3)
@@ -232,6 +146,7 @@ local function findObfuscatedRemotes()
             if ui:IsA("TextButton") then
                 local name = ui.Name:lower()
                 local text = ui.Text:lower()
+                
                 if name:find("rebirth") or text:find("rebirth") or name:find("prestige") then
                     Config.rebirthRemote = ui
                     notify("✅ Rebirth Button", "Trouvé: " .. ui.Name, 3)
@@ -243,7 +158,7 @@ local function findObfuscatedRemotes()
 end
 
 -- ============================================
--- 6. AUTO FUNCTIONS (LOGIQUE COMPLETE)
+-- AUTO FUNCTIONS
 -- ============================================
 
 local function autoClick()
@@ -287,17 +202,23 @@ end
 local function autoClaimPacks()
     while Config.AutoClaimPacks do
         pcall(function()
+            -- Claim ForeverPack
             if Config.foreverPackClaim then
                 Config.foreverPackClaim:FireServer()
                 Stats.packsClaimed = Stats.packsClaimed + 1
             end
+            
+            -- Request ForeverPack
             if Config.foreverPackRequest then
                 Config.foreverPackRequest:FireServer()
             end
+            
+            -- Try to claim all rewards
             for _, ui in ipairs(gui:GetDescendants()) do
                 if ui:IsA("TextButton") then
                     local name = ui.Name:lower()
                     local text = ui.Text:lower()
+                    
                     if (name:find("claim") or text:find("claim")) and ui.Visible then
                         for _, connection in pairs(getconnections(ui.MouseButton1Click)) do
                             connection:Fire()
@@ -324,12 +245,14 @@ end
 local function autoBuyEggs()
     while Config.AutoBuyEggs do
         pcall(function()
+            -- Find and click egg buy buttons
             local storeUI = gui.Tabs and gui.Tabs:FindFirstChild("Store")
             if storeUI then
                 for _, desc in ipairs(storeUI:GetDescendants()) do
                     if desc:IsA("TextButton") then
                         local name = desc.Name:lower()
                         local text = desc.Text:lower()
+                        
                         if name:find("buy") and desc.Visible then
                             for _, connection in pairs(getconnections(desc.MouseButton1Click)) do
                                 connection:Fire()
@@ -346,88 +269,118 @@ local function autoBuyEggs()
 end
 
 -- ============================================
--- 7. INTERFACE BUILD (TABS COMPLETS)
+-- UI TABS
 -- ============================================
 
--- MAIN TAB
-local MainTab = RayfieldWindow:CreateTab("🏠 Main", 4483362458)
+-- Main Tab
+local MainTab = Window:CreateTab("🏠 Main", 4483362458)
 
-MainTab:CreateToggle({
+local AutoClickToggle = MainTab:CreateToggle({
     Name = "🖱️ Auto Click",
     CurrentValue = false,
     Flag = "AutoClick",
     Callback = function(Value)
         Config.AutoClick = Value
-        if Value then task.spawn(autoClick) end
+        if Value then
+            notify("✅ Auto Click", "Activé", 2)
+            task.spawn(autoClick)
+        else
+            notify("❌ Auto Click", "Désactivé", 2)
+        end
     end
 })
 
-MainTab:CreateSlider({
+local ClickSpeedSlider = MainTab:CreateSlider({
     Name = "⚡ Click Speed (s)",
     Range = {0.01, 1},
     Increment = 0.01,
     CurrentValue = 0.1,
     Flag = "ClickSpeed",
-    Callback = function(Value) Config.ClickSpeed = Value end
+    Callback = function(Value)
+        Config.ClickSpeed = Value
+    end
 })
 
-MainTab:CreateToggle({
+local AutoRebirthToggle = MainTab:CreateToggle({
     Name = "♻️ Auto Rebirth",
     CurrentValue = false,
     Flag = "AutoRebirth",
     Callback = function(Value)
         Config.AutoRebirth = Value
-        if Value then task.spawn(autoRebirth) end
+        if Value then
+            notify("✅ Auto Rebirth", "Activé", 2)
+            task.spawn(autoRebirth)
+        else
+            notify("❌ Auto Rebirth", "Désactivé", 2)
+        end
     end
 })
 
-MainTab:CreateSlider({
+local RebirthDelaySlider = MainTab:CreateSlider({
     Name = "⏱️ Rebirth Delay (s)",
     Range = {0.5, 10},
     Increment = 0.5,
     CurrentValue = 1,
     Flag = "RebirthDelay",
-    Callback = function(Value) Config.RebirthDelay = Value end
+    Callback = function(Value)
+        Config.RebirthDelay = Value
+    end
 })
 
 MainTab:CreateDivider()
+
 local StatsLabel = MainTab:CreateLabel("📊 Stats: Loading...")
 
--- FARM TAB
-local FarmTab = RayfieldWindow:CreateTab("🌾 Farm", 4483362458)
+-- Farm Tab
+local FarmTab = Window:CreateTab("🌾 Farm", 4483362458)
 
-FarmTab:CreateToggle({
+local AutoPetFarmToggle = FarmTab:CreateToggle({
     Name = "🐾 Auto Pet Farm",
     CurrentValue = false,
     Flag = "AutoPetFarm",
     Callback = function(Value)
         Config.AutoPetFarm = Value
-        if Value then task.spawn(autoPetFarm) end
+        if Value then
+            notify("✅ Pet Farm", "Activé", 2)
+            task.spawn(autoPetFarm)
+        else
+            notify("❌ Pet Farm", "Désactivé", 2)
+        end
     end
 })
 
-FarmTab:CreateToggle({
+local AutoClaimPacksToggle = FarmTab:CreateToggle({
     Name = "🎁 Auto Claim Packs",
     CurrentValue = false,
     Flag = "AutoClaimPacks",
     Callback = function(Value)
         Config.AutoClaimPacks = Value
-        if Value then task.spawn(autoClaimPacks) end
+        if Value then
+            notify("✅ Auto Claim", "Activé", 2)
+            task.spawn(autoClaimPacks)
+        else
+            notify("❌ Auto Claim", "Désactivé", 2)
+        end
     end
 })
 
-FarmTab:CreateToggle({
+local AutoBuyEggsToggle = FarmTab:CreateToggle({
     Name = "🥚 Auto Buy Eggs",
     CurrentValue = false,
     Flag = "AutoBuyEggs",
     Callback = function(Value)
         Config.AutoBuyEggs = Value
-        if Value then task.spawn(autoBuyEggs) end
+        if Value then
+            notify("✅ Auto Buy Eggs", "Activé", 2)
+            task.spawn(autoBuyEggs)
+        else
+            notify("❌ Auto Buy Eggs", "Désactivé", 2)
+        end
     end
 })
 
--- SHOP TAB
-local ShopTab = RayfieldWindow:CreateTab("🛒 Shop", 4483362458)
+-- Shop Tab
+local ShopTab = Window:CreateTab("🛒 Shop", 4483362458)
 
 ShopTab:CreateButton({
     Name = "💎 Claim Forever Pack",
@@ -462,6 +415,7 @@ ShopTab:CreateButton({
                 if ui:IsA("TextButton") and ui.Visible then
                     local name = ui.Name:lower()
                     local text = ui.Text:lower()
+                    
                     if name:find("claim") or text:find("claim") then
                         for _, connection in pairs(getconnections(ui.MouseButton1Click)) do
                             connection:Fire()
@@ -475,12 +429,14 @@ ShopTab:CreateButton({
     end
 })
 
--- MISC TAB
-local MiscTab = RayfieldWindow:CreateTab("⚙️ Misc", 4483362458)
+-- Misc Tab
+local MiscTab = Window:CreateTab("⚙️ Misc", 4483362458)
 
 MiscTab:CreateButton({
     Name = "🔄 Re-scan Remotes",
-    Callback = function() findObfuscatedRemotes() end
+    Callback = function()
+        findObfuscatedRemotes()
+    end
 })
 
 MiscTab:CreateButton({
@@ -511,6 +467,7 @@ MiscTab:CreateButton({
 })
 
 MiscTab:CreateDivider()
+
 MiscTab:CreateLabel("⚠️ Experimental Features")
 
 MiscTab:CreateButton({
@@ -538,10 +495,10 @@ MiscTab:CreateButton({
 })
 
 -- ============================================
--- 8. INITIALISATION FINALE
+-- INIT
 -- ============================================
 
-notify("🚀 TapSim Audit", "Script Chargé. Appuie sur MENU.", 3)
+notify("🚀 TapSim Auto-Farm", "Chargement...", 3)
 
 -- Find remotes on startup
 task.wait(2)
@@ -552,6 +509,8 @@ task.spawn(function()
     while task.wait(1) do
         Stats.runtime = Stats.runtime + 1
         updateStats()
+        
+        -- Update stats label
         pcall(function()
             StatsLabel:Set(string.format(
                 "📊 Clicks: %s | Rebirths: %s | Runtime: %ds",
@@ -562,3 +521,14 @@ task.spawn(function()
         end)
     end
 end)
+
+notify("✅ Loaded", "TapSim Auto-Farm ready!", 3)
+print("=" .. string.rep("=", 60))
+print("TapSim Auto-Farm AFK - Loaded Successfully")
+print("Remotes found:")
+print("  Click:", Config.clickRemote and Config.clickRemote.Name or "NOT FOUND")
+print("  Rebirth:", Config.rebirthRemote and Config.rebirthRemote.Name or "NOT FOUND")
+print("  Purchase:", Config.purchaseRemote and "OK" or "NOT FOUND")
+print("  ForeverPack:", Config.foreverPackClaim and "OK" or "NOT FOUND")
+print("  PetAttack:", Config.petAttackEvent and "OK" or "NOT FOUND")
+print("=" .. string.rep("=", 60))
