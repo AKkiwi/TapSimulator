@@ -19,7 +19,11 @@ local character = player.Character or player.CharacterAdded:Wait()
 local CONFIG = {
     services = {ReplicatedStorage, Workspace, Players},
     maxDepth = 20,
-    autoScan = true
+    autoScan = true,
+    -- LIMITES POUR ÉVITER LES CRASHS (surtout sur mobile)
+    maxItemsPerCategory = 100,  -- Limite par catégorie
+    maxTextSize = 50000,        -- Limite de caractères pour éviter crash
+    paginationSize = 50         -- Afficher par paquets de 50
 }
 
 -- ============================================
@@ -441,6 +445,39 @@ end
 -- FORMATTING
 -- ============================================
 
+local function formatTopItems(items, limit, itemType)
+    local lines = {}
+    local count = math.min(limit, #items)
+    
+    if count == 0 then
+        return "  Aucun"
+    end
+    
+    for i = 1, count do
+        local item = items[i]
+        table.insert(lines, string.format("  [%d] %s ? %s", i, item.name or "?", item.path or "?"))
+    end
+    
+    if #items > limit then
+        table.insert(lines, string.format("  ... +%d autres", #items - limit))
+    end
+    
+    return table.concat(lines, "\n")
+end
+
+local function formatCompleteList(items, itemType)
+    local lines = {}
+    table.insert(lines, string.format("Total: %d %s(s)", #items, itemType))
+    table.insert(lines, "")
+    
+    for i, item in ipairs(items) do
+        table.insert(lines, string.format("[%d] %s", i, item.name or "?"))
+        table.insert(lines, "    ? " .. (item.path or "?"))
+    end
+    
+    return table.concat(lines, "\n")
+end
+
 local function formatRemotes()
     local lines = {}
     table.insert(lines, "????????????????????????????????????????????")
@@ -479,11 +516,15 @@ local function formatHiddenUIs()
     table.insert(lines, "")
     
     if #exploitData.hiddenGuis > 0 then
-        table.insert(lines, "?? GUIS DÉSACTIVÉS (Activables!):")
-        for i, ui in ipairs(exploitData.hiddenGuis) do
-            table.insert(lines, string.format("[%d] %s (Enabled: %s)", i, ui.name, tostring(ui.enabled)))
+        table.insert(lines, string.format("?? GUIS DÉSACTIVÉS: %d", #exploitData.hiddenGuis))
+        local limit = math.min(CONFIG.maxItemsPerCategory, #exploitData.hiddenGuis)
+        for i = 1, limit do
+            local ui = exploitData.hiddenGuis[i]
+            table.insert(lines, string.format("[%d] %s", i, ui.name))
             table.insert(lines, "    ? " .. ui.path)
-            table.insert(lines, "    ?? Astuce: ui.Enabled = true")
+        end
+        if #exploitData.hiddenGuis > limit then
+            table.insert(lines, string.format("... et %d autres (voir EXPORT pour tout)", #exploitData.hiddenGuis - limit))
         end
         table.insert(lines, "")
     else
@@ -492,14 +533,21 @@ local function formatHiddenUIs()
     end
     
     if #exploitData.accessibleButtons > 0 then
-        table.insert(lines, string.format("?? BOUTONS ACCESSIBLES: %d", #exploitData.accessibleButtons))
-        for i = 1, math.min(20, #exploitData.accessibleButtons) do
+        table.insert(lines, string.format("?? BOUTONS: %d trouvés", #exploitData.accessibleButtons))
+        table.insert(lines, "")
+        
+        -- PAGINATION: Afficher seulement les 50 premiers pour éviter crash
+        local limit = math.min(CONFIG.paginationSize, #exploitData.accessibleButtons)
+        for i = 1, limit do
             local btn = exploitData.accessibleButtons[i]
             table.insert(lines, string.format("[%d] %s", i, btn.name))
             table.insert(lines, "    ? " .. btn.path)
         end
-        if #exploitData.accessibleButtons > 20 then
-            table.insert(lines, string.format("... et %d autres", #exploitData.accessibleButtons - 20))
+        
+        if #exploitData.accessibleButtons > limit then
+            table.insert(lines, "")
+            table.insert(lines, string.format("?? %d boutons cachés pour éviter crash!", #exploitData.accessibleButtons - limit))
+            table.insert(lines, "?? Utilisez EXPORT pour tout sauvegarder")
         end
     end
     
@@ -695,27 +743,56 @@ local function init()
             return
         end
         
-        local fullReport = table.concat({
-            formatReport(),
-            "\n\n",
-            formatRemotes(),
-            "\n\n",
-            formatHiddenUIs(),
-            "\n\n",
-            formatInteractions(),
-            "\n\n",
-            formatAntiCheat()
-        }, "")
+        -- VERSION LÉGÈRE pour éviter crash
+        local lightReport = table.concat({
+            "=== RAPPORT LÉGER (Anti-Crash) ===",
+            "",
+            string.format("?? Stats: %d objets | %d remotes | %d UI | %d clicks", 
+                exploitData.stats.totalScanned,
+                exploitData.stats.exploitableRemotes,
+                exploitData.stats.hiddenUIs,
+                exploitData.stats.clickDetectors),
+            "",
+            "?? TOP REMOTES:",
+            formatTopItems(exploitData.remotes.events, 20, "RemoteEvent"),
+            formatTopItems(exploitData.remotes.functions, 20, "RemoteFunction"),
+            "",
+            "?? TOP UI CACHÉS:",
+            formatTopItems(exploitData.hiddenGuis, 10, "GUI"),
+            "",
+            "?? Pour le rapport COMPLET, utilisez EXPORT (fichier)"
+        }, "\n")
         
+        -- Vérifier la taille AVANT de copier
+        if #lightReport > CONFIG.maxTextSize then
+            copyBtn.Text = "?? TROP GROS!"
+            print("[ERREUR] Rapport trop volumineux pour copie!")
+            print("Utilisez EXPORT à la place")
+            task.wait(2)
+            copyBtn.Text = "?? COPIER"
+            return
+        end
+        
+        local success = false
+        
+        -- Méthode 1: setclipboard
         pcall(function()
             if setclipboard then
-                setclipboard(fullReport)
-                copyBtn.Text = "? COPIÉ!"
-            else
-                print(fullReport)
-                copyBtn.Text = "?? CONSOLE"
+                setclipboard(lightReport)
+                success = true
             end
         end)
+        
+        if success then
+            copyBtn.Text = "? COPIÉ! (" .. #lightReport .. ")"
+            print("[COPIE] Rapport léger copié (anti-crash)")
+        else
+            -- Méthode 2: Console
+            print("========== RAPPORT LÉGER ==========")
+            print(lightReport)
+            print("========== FIN ==========")
+            copyBtn.Text = "?? CONSOLE (F9)"
+        end
         
         task.wait(2)
         copyBtn.Text = "?? COPIER"
@@ -730,12 +807,17 @@ local function init()
             return
         end
         
+        -- EXPORT COMPLET (tous les détails)
         local fullReport = table.concat({
             formatReport(),
             "\n\n",
             formatRemotes(),
             "\n\n",
-            formatHiddenUIs(),
+            "=== UI CACHÉS (COMPLET) ===",
+            formatCompleteList(exploitData.hiddenGuis, "GUI"),
+            "\n\n",
+            "=== BOUTONS (COMPLET) ===",
+            formatCompleteList(exploitData.accessibleButtons, "Bouton"),
             "\n\n",
             formatInteractions(),
             "\n\n",
@@ -747,13 +829,25 @@ local function init()
             if writefile then
                 local fileName = "exploit_report_" .. os.date("%Y%m%d_%H%M%S") .. ".txt"
                 writefile(fileName, fullReport)
-                exportBtn.Text = "?? " .. fileName
+                exportBtn.Text = "?? SAUVÉ!"
+                print("[EXPORT] Fichier créé: " .. fileName)
+                print("[EXPORT] Taille: " .. #fullReport .. " caractères")
                 success = true
             end
         end)
         
         if not success then
             exportBtn.Text = "? INDISPO"
+            -- Fallback: Print en plusieurs parties pour éviter crash console
+            print("========== EXPORT (PARTIE 1/3) ==========")
+            print(formatReport())
+            print(formatRemotes())
+            print("========== PARTIE 2/3 ==========")
+            print(formatHiddenUIs())
+            print(formatInteractions())
+            print("========== PARTIE 3/3 ==========")
+            print(formatAntiCheat())
+            print("========== FIN ==========")
         end
         
         task.wait(3)
