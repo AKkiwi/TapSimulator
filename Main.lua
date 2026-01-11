@@ -1,217 +1,292 @@
--- Services nécessaires
+-- ============================================
+-- AUDIT DUMPER - Version Optimisée
+-- ============================================
+
 local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
 
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local player = Players.LocalPlayer
+local gui = player:WaitForChild("PlayerGui")
 
--- Configuration
-local TARGET_SERVICES = {Workspace, ReplicatedStorage, Players}
-local TARGET_CLASSES = {"ScreenGui", "TextBox", "RemoteEvent", "RemoteFunction", "ModuleScript", "LocalScript"}
+-- ============================================
+-- CONFIGURATION
+-- ============================================
 
--- VARIABLE GLOBALE POUR STOCKER LE TEXTE COMPLET
-local fullDumpText = ""
+local CONFIG = {
+    services = {Workspace, ReplicatedStorage, Players},
+    classes = {"ScreenGui", "TextBox", "RemoteEvent", "RemoteFunction", "ModuleScript", "LocalScript", "Folder", "Model"}
+}
 
--- Création de l'interface graphique (GUI)
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AuditDumperGUI"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = PlayerGui
+-- ============================================
+-- STOCKAGE DES DONNÉES
+-- ============================================
 
--- Cadre Principal (Frame)
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0.8, 0, 0.6, 0)
-mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-mainFrame.BorderSizePixel = 2
-mainFrame.Parent = screenGui
+local dumpData = {}
 
--- Titre
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 0.1, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "Audit Dump - Client View"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.TextScaled = true
-titleLabel.Parent = mainFrame
+-- ============================================
+-- CRÉATION GUI
+-- ============================================
 
--- Zone de texte pour le résultat
-local resultBox = Instance.new("TextBox")
-resultBox.Name = "ResultBox"
-resultBox.Size = UDim2.new(0.95, 0, 0.75, 0)
-resultBox.Position = UDim2.new(0.025, 0, 0.12, 0)
-resultBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-resultBox.TextColor3 = Color3.fromRGB(0, 255, 0)
-resultBox.TextXAlignment = Enum.TextXAlignment.Left
-resultBox.TextYAlignment = Enum.TextYAlignment.Top
-resultBox.TextSize = 14
-resultBox.ClearTextOnFocus = false
-resultBox.MultiLine = true
-resultBox.TextWrapped = true 
-resultBox.Text = "Appuyez sur 'Lancer le Dump'..."
-resultBox.Parent = mainFrame
-
------------------------------------------------------------
--- LES BOUTONS
------------------------------------------------------------
-
--- 1. Bouton LANCER (Gauche)
-local dumpButton = Instance.new("TextButton")
-dumpButton.Name = "DumpButton"
-dumpButton.Size = UDim2.new(0.3, 0, 0.1, 0)
-dumpButton.Position = UDim2.new(0.025, 0, 0.88, 0)
-dumpButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-dumpButton.BorderSizePixel = 0
-dumpButton.Text = "LANCER"
-dumpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-dumpButton.TextScaled = true
-dumpButton.Parent = mainFrame
-
--- 2. Bouton COPIER (Milieu)
-local copyButton = Instance.new("TextButton")
-copyButton.Name = "CopyButton"
-copyButton.Size = UDim2.new(0.3, 0, 0.1, 0)
-copyButton.Position = UDim2.new(0.35, 0, 0.88, 0)
-copyButton.BackgroundColor3 = Color3.fromRGB(255, 170, 0)
-copyButton.BorderSizePixel = 0
-copyButton.Text = "COPIER TOUT"
-copyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-copyButton.TextScaled = true
-copyButton.Parent = mainFrame
-
--- 3. Bouton FERMER (Droite)
-local closeButton = Instance.new("TextButton")
-closeButton.Name = "CloseButton"
-closeButton.Size = UDim2.new(0.3, 0, 0.1, 0)
-closeButton.Position = UDim2.new(0.675, 0, 0.88, 0)
-closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-closeButton.BorderSizePixel = 0
-closeButton.Text = "FERMER"
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextScaled = true
-closeButton.Parent = mainFrame
-
------------------------------------------------------------
--- LOGIQUE DU DUMP
------------------------------------------------------------
-
-local function getHierarchy(obj, indent)
-    local result = ""
-    local children = obj:GetChildren()
+local function createGui()
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "AuditDumper"
+    sg.ResetOnSpawn = false
+    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    for _, child in ipairs(children) do
-        local isInteresting = false
-        for _, classType in ipairs(TARGET_CLASSES) do
-            if child:IsA(classType) then
-                isInteresting = true
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.8, 0, 0.7, 0)
+    frame.Position = UDim2.new(0.1, 0, 0.15, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.BorderSizePixel = 0
+    frame.Parent = sg
+    
+    -- Coins arrondis
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+    
+    -- Titre
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -20, 0, 40)
+    title.Position = UDim2.new(0, 10, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "?? AUDIT DUMPER"
+    title.TextColor3 = Color3.fromRGB(100, 200, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 20
+    title.Parent = frame
+    
+    -- Zone de résultats (ScrollingFrame au lieu de TextBox)
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1, -20, 1, -120)
+    scrollFrame.Position = UDim2.new(0, 10, 0, 60)
+    scrollFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.ScrollBarThickness = 6
+    scrollFrame.Parent = frame
+    
+    local scrollCorner = Instance.new("UICorner")
+    scrollCorner.CornerRadius = UDim.new(0, 4)
+    scrollCorner.Parent = scrollFrame
+    
+    local resultLabel = Instance.new("TextLabel")
+    resultLabel.Name = "ResultLabel"
+    resultLabel.Size = UDim2.new(1, -10, 1, 0)
+    resultLabel.Position = UDim2.new(0, 5, 0, 0)
+    resultLabel.BackgroundTransparency = 1
+    resultLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+    resultLabel.Font = Enum.Font.Code
+    resultLabel.TextSize = 14
+    resultLabel.TextXAlignment = Enum.TextXAlignment.Left
+    resultLabel.TextYAlignment = Enum.TextYAlignment.Top
+    resultLabel.TextWrapped = true
+    resultLabel.Text = "Appuyez sur SCANNER pour démarrer..."
+    resultLabel.Parent = scrollFrame
+    
+    -- Container pour les boutons
+    local btnContainer = Instance.new("Frame")
+    btnContainer.Size = UDim2.new(1, -20, 0, 50)
+    btnContainer.Position = UDim2.new(0, 10, 1, -60)
+    btnContainer.BackgroundTransparency = 1
+    btnContainer.Parent = frame
+    
+    -- Boutons
+    local function createButton(text, pos, color)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.31, 0, 1, 0)
+        btn.Position = pos
+        btn.BackgroundColor3 = color
+        btn.BorderSizePixel = 0
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 16
+        btn.Parent = btnContainer
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 6)
+        btnCorner.Parent = btn
+        
+        return btn
+    end
+    
+    local scanBtn = createButton("?? SCANNER", UDim2.new(0, 0, 0, 0), Color3.fromRGB(0, 120, 215))
+    local copyBtn = createButton("?? COPIER", UDim2.new(0.345, 0, 0, 0), Color3.fromRGB(255, 140, 0))
+    local closeBtn = createButton("? FERMER", UDim2.new(0.69, 0, 0, 0), Color3.fromRGB(200, 50, 50))
+    
+    sg.Parent = gui
+    
+    return sg, resultLabel, scanBtn, copyBtn, closeBtn, scrollFrame
+end
+
+-- ============================================
+-- LOGIQUE DE SCAN
+-- ============================================
+
+local function scanHierarchy(obj, indent, results)
+    indent = indent or ""
+    results = results or {}
+    
+    for _, child in ipairs(obj:GetChildren()) do
+        local match = false
+        for _, className in ipairs(CONFIG.classes) do
+            if child:IsA(className) then
+                match = true
                 break
             end
         end
-        if child:IsA("Folder") or child:IsA("Model") then isInteresting = true end
-
-        if isInteresting then
-            result = result .. indent .. "[" .. child.ClassName .. "] " .. child.Name .. "\n"
-            if child:IsA("ScreenGui") or child:IsA("Frame") or child:IsA("Folder") then
-                result = result .. getHierarchy(child, indent .. "  ")
+        
+        if match then
+            table.insert(results, {
+                indent = indent,
+                class = child.ClassName,
+                name = child.Name,
+                path = child:GetFullName()
+            })
+            
+            if child:IsA("ScreenGui") or child:IsA("Folder") or child:IsA("Model") or child:IsA("Frame") then
+                scanHierarchy(child, indent .. "  ", results)
             end
         end
     end
-    return result
+    
+    return results
 end
 
-local function runDump()
-    resultBox.Text = "Scan en cours..."
-    task.wait(0.1)
+local function performScan()
+    dumpData = {}
     
-    local finalOutput = "-- DEBUT DU DUMP --\n\n"
-    
-    for _, service in ipairs(TARGET_SERVICES) do
-        finalOutput = finalOutput .. ">>> SERVICE: " .. service.Name .. "\n"
-        finalOutput = finalOutput .. getHierarchy(service, "  ")
-        finalOutput = finalOutput .. "\n"
+    for _, service in ipairs(CONFIG.services) do
+        local serviceData = {
+            name = service.Name,
+            items = scanHierarchy(service)
+        }
+        table.insert(dumpData, serviceData)
     end
     
-    finalOutput = finalOutput .. ">>> PLAYER GUI\n"
-    if LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui") then
-        finalOutput = finalOutput .. getHierarchy(LocalPlayer.PlayerGui, "  ")
+    -- Scan PlayerGui
+    if player:FindFirstChild("PlayerGui") then
+        table.insert(dumpData, {
+            name = "PlayerGui",
+            items = scanHierarchy(player.PlayerGui)
+        })
     end
     
-    finalOutput = finalOutput .. "\n-- FIN DU DUMP --"
-    
-    -- STOCKER LE TEXTE COMPLET DANS LA VARIABLE GLOBALE
-    fullDumpText = finalOutput
-    
-    -- Afficher dans la TextBox (peut être tronqué visuellement)
-    resultBox.Text = finalOutput
+    return dumpData
 end
 
------------------------------------------------------------
--- LOGIQUE COPIER (Utilise fullDumpText au lieu de resultBox.Text)
------------------------------------------------------------
+-- ============================================
+-- FORMATAGE DES RÉSULTATS
+-- ============================================
 
-local function copyText()
-    -- UTILISER LA VARIABLE GLOBALE AU LIEU DU TEXTE DE LA TEXTBOX
-    local textToCopy = fullDumpText
+local function formatResults()
+    local lines = {"=== AUDIT DUMP ===", ""}
+    
+    for _, serviceData in ipairs(dumpData) do
+        table.insert(lines, ">>> " .. serviceData.name)
+        
+        for _, item in ipairs(serviceData.items) do
+            table.insert(lines, string.format("%s[%s] %s", item.indent, item.class, item.name))
+        end
+        
+        table.insert(lines, "")
+    end
+    
+    table.insert(lines, "=== FIN DU DUMP ===")
+    return table.concat(lines, "\n")
+end
+
+-- ============================================
+-- COPIE MULTI-MÉTHODES
+-- ============================================
+
+local function copyToClipboard(text, btn)
     local success = false
     
-    -- Vérifier qu'on a bien du contenu
-    if textToCopy == "" or textToCopy == "Appuyez sur 'Lancer le Dump'..." then
-        copyButton.Text = "PAS DE DUMP !"
-        task.wait(1)
-        copyButton.Text = "COPIER TOUT"
-        return
-    end
-    
-    -- Méthode 1 : Essai avec fonction d'injecteur (setclipboard)
-    pcall(function()
+    -- Méthode 1: setclipboard (exploits)
+    local ok = pcall(function()
         if setclipboard then
-            setclipboard(textToCopy)
-            copyButton.Text = "COPIÉ ! (" .. #textToCopy .. " car.)"
+            setclipboard(text)
             success = true
-            task.wait(2)
-            copyButton.Text = "COPIER TOUT"
         end
     end)
     
-    -- Méthode 2 : Fallback - Créer une TextBox temporaire avec tout le texte
-    if not success then
-        -- Détruire l'ancienne si elle existe
-        local oldTemp = screenGui:FindFirstChild("TempCopyBox")
-        if oldTemp then oldTemp:Destroy() end
-        
-        -- Créer une TextBox invisible avec TOUT le texte
-        local tempBox = Instance.new("TextBox")
-        tempBox.Name = "TempCopyBox"
-        tempBox.Size = UDim2.new(0, 1, 0, 1)
-        tempBox.Position = UDim2.new(0, -1000, 0, -1000) -- Hors écran
-        tempBox.Text = textToCopy
-        tempBox.ClearTextOnFocus = false
-        tempBox.MultiLine = true
-        tempBox.Parent = screenGui
-        
-        -- Forcer la sélection de TOUT le texte
-        tempBox:CaptureFocus()
-        tempBox.CursorPosition = #textToCopy + 1
-        tempBox.SelectionStart = 1
-        
-        copyButton.Text = "SÉLECTIONNÉ !"
-        task.wait(0.5)
-        copyButton.Text = "COPIER MANUELLEMENT"
-        
-        -- Nettoyer après 10 secondes
-        task.delay(10, function()
-            if tempBox and tempBox.Parent then
-                tempBox:Destroy()
-                copyButton.Text = "COPIER TOUT"
-            end
-        end)
+    if success then
+        btn.Text = "? COPIÉ! (" .. #text .. " car.)"
+        task.wait(2)
+        btn.Text = "?? COPIER"
+        return
     end
+    
+    -- Méthode 2: Fichier JSON (export)
+    local fileName = "audit_dump_" .. os.time() .. ".txt"
+    ok = pcall(function()
+        if writefile then
+            writefile(fileName, text)
+            btn.Text = "?? SAUVEGARDÉ: " .. fileName
+            success = true
+            task.wait(3)
+            btn.Text = "?? COPIER"
+        end
+    end)
+    
+    if success then return end
+    
+    -- Méthode 3: Print (console)
+    print("========== AUDIT DUMP ==========")
+    print(text)
+    print("========== FIN ==========")
+    btn.Text = "?? VOIR CONSOLE (F9)"
+    task.wait(2)
+    btn.Text = "?? COPIER"
 end
 
--- Connexions
-dumpButton.MouseButton1Click:Connect(runDump)
-copyButton.MouseButton1Click:Connect(copyText)
-closeButton.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+-- ============================================
+-- INITIALISATION
+-- ============================================
+
+local function init()
+    local sg, label, scanBtn, copyBtn, closeBtn, scrollFrame = createGui()
+    
+    scanBtn.MouseButton1Click:Connect(function()
+        scanBtn.Text = "? SCAN..."
+        label.Text = "Scan en cours...\n"
+        task.wait(0.1)
+        
+        performScan()
+        local result = formatResults()
+        
+        label.Text = result
+        
+        -- Ajuster la taille du label pour le scroll
+        local textSize = game:GetService("TextService"):GetTextSize(
+            result,
+            14,
+            Enum.Font.Code,
+            Vector2.new(scrollFrame.AbsoluteSize.X - 20, math.huge)
+        )
+        label.Size = UDim2.new(1, -10, 0, textSize.Y + 10)
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, textSize.Y + 20)
+        
+        scanBtn.Text = "?? SCANNER"
+    end)
+    
+    copyBtn.MouseButton1Click:Connect(function()
+        if #dumpData == 0 then
+            copyBtn.Text = "?? SCAN D'ABORD!"
+            task.wait(1)
+            copyBtn.Text = "?? COPIER"
+            return
+        end
+        
+        copyToClipboard(formatResults(), copyBtn)
+    end)
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        sg:Destroy()
+    end)
+end
+
+init()
