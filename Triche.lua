@@ -1,5 +1,5 @@
 ﻿-- ============================================
--- TAPSIM AUTO-FARM AFK - RAYFIELD EDITION
+-- TAPSIM AUTO-FARM AFK - VERSION COMPLETE
 -- ============================================
 
 local Players = game:GetService("Players")
@@ -10,10 +10,12 @@ local player = Players.LocalPlayer
 local gui = player:WaitForChild("PlayerGui")
 
 -- ============================================
--- CONFIGURATION
+-- CHEAT LOGIC MODULE
 -- ============================================
 
-local Config = {
+local CheatLogic = {}
+
+CheatLogic.Config = {
     AutoClick = false,
     AutoRebirth = false,
     AutoClaimPacks = false,
@@ -24,17 +26,15 @@ local Config = {
     RebirthDelay = 1,
     ClaimDelay = 5,
     
-    -- Detected remotes
     clickRemote = nil,
     rebirthRemote = nil,
-    purchaseRemote = ReplicatedStorage:FindFirstChild("PurchasePack"),
-    foreverPackRequest = ReplicatedStorage:FindFirstChild("ForeverPackRequest"),
-    foreverPackClaim = ReplicatedStorage:FindFirstChild("ForeverPackClaim"),
-    petAttackEvent = ReplicatedStorage:FindFirstChild("PetAttackEvent"),
+    purchaseRemote = nil,
+    foreverPackRequest = nil,
+    foreverPackClaim = nil,
+    petAttackEvent = nil,
 }
 
--- Stats tracking
-local Stats = {
+CheatLogic.Stats = {
     clicks = 0,
     rebirths = 0,
     packsClaimed = 0,
@@ -42,63 +42,44 @@ local Stats = {
     runtime = 0
 }
 
--- ============================================
--- LOAD RAYFIELD
--- ============================================
+CheatLogic.Callbacks = {
+    onNotify = nil,
+    onStatsUpdate = nil,
+    onRemoteFound = nil,
+}
 
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
-local Window = Rayfield:CreateWindow({
-    Name = "🚀 TapSim Auto-Farm AFK",
-    LoadingTitle = "TapSim Exploit",
-    LoadingSubtitle = "by maxoupixo4",
-    ConfigurationSaving = {
-        Enabled = true,
-        FileName = "TapSimConfig"
-    }
-})
-
--- ============================================
--- UTILITY FUNCTIONS
--- ============================================
-
-local function notify(title, content, duration)
-    Rayfield:Notify({
-        Title = title,
-        Content = content,
-        Duration = duration or 3,
-        Image = 4483362458
-    })
+function CheatLogic:Notify(title, content, duration)
+    if self.Callbacks.onNotify then
+        self.Callbacks.onNotify(title, content, duration or 3)
+    else
+        print(string.format("[%s] %s", title, content))
+    end
 end
 
-local function updateStats()
+function CheatLogic:UpdateStats()
     if player:FindFirstChild("leaderstats") then
         local clicks = player.leaderstats:FindFirstChild("Clicks")
         local rebirths = player.leaderstats:FindFirstChild("Rebirths")
         
         if clicks then
-            local clickValue = tonumber(clicks.Value) or 0
-            Stats.clicks = clickValue
+            self.Stats.clicks = tonumber(clicks.Value) or 0
         end
         
         if rebirths then
-            local rebirthValue = tonumber(rebirths.Value) or 0
-            Stats.rebirths = rebirthValue
+            self.Stats.rebirths = tonumber(rebirths.Value) or 0
         end
+    end
+    
+    if self.Callbacks.onStatsUpdate then
+        self.Callbacks.onStatsUpdate(self.Stats)
     end
 end
 
--- ============================================
--- REMOTE FINDER
--- ============================================
-
-local function findObfuscatedRemotes()
-    notify("🔍 Recherche", "Scan des remotes obfusqués...", 3)
+function CheatLogic:FindObfuscatedRemotes()
+    self:Notify("🔍 Recherche", "Scan des remotes obfusqués...", 3)
     
-    -- Search in obfuscated folder
     local obfFolder = ReplicatedStorage:FindFirstChild("8b37e5ec-5fad-4ce6-b47e-4504b6dd4200")
     if not obfFolder then
-        -- Try other GUIDs
         for _, child in ipairs(ReplicatedStorage:GetChildren()) do
             if child.Name:match("%x+-%x+-%x+-%x+-%x+") then
                 obfFolder = child
@@ -109,360 +90,511 @@ local function findObfuscatedRemotes()
     
     if obfFolder then
         local eventsFolder = obfFolder:FindFirstChild("Events")
-        local functionsFolder = obfFolder:FindFirstChild("Functions")
         
         if eventsFolder then
             local allEvents = eventsFolder:GetChildren()
-            -- Heuristique: premier event = click, deuxième = rebirth
             if #allEvents >= 1 then
-                Config.clickRemote = allEvents[1]
-                notify("✅ Click Remote", "Trouvé: " .. Config.clickRemote.Name, 3)
+                self.Config.clickRemote = allEvents[1]
+                self:Notify("✅ Click Remote", "Trouvé: " .. self.Config.clickRemote.Name, 3)
             end
             if #allEvents >= 2 then
-                Config.rebirthRemote = allEvents[2]
-                notify("✅ Rebirth Remote", "Trouvé: " .. Config.rebirthRemote.Name, 3)
+                self.Config.rebirthRemote = allEvents[2]
+                self:Notify("✅ Rebirth Remote", "Trouvé: " .. self.Config.rebirthRemote.Name, 3)
             end
         end
     end
     
-    -- Fallback: Search in GUI buttons
-    if not Config.clickRemote then
+    if not self.Config.clickRemote then
         for _, ui in ipairs(gui:GetDescendants()) do
             if ui:IsA("TextButton") then
                 local name = ui.Name:lower()
                 local text = ui.Text:lower()
                 
                 if name:find("tap") or text:find("tap") or name == "Tap" then
-                    Config.clickRemote = ui
-                    notify("✅ Click Button", "Trouvé: " .. ui.Name, 3)
+                    self.Config.clickRemote = ui
+                    self:Notify("✅ Click Button", "Trouvé: " .. ui.Name, 3)
                     break
                 end
             end
         end
     end
     
-    if not Config.rebirthRemote then
+    if not self.Config.rebirthRemote then
         for _, ui in ipairs(gui:GetDescendants()) do
             if ui:IsA("TextButton") then
                 local name = ui.Name:lower()
                 local text = ui.Text:lower()
                 
                 if name:find("rebirth") or text:find("rebirth") or name:find("prestige") then
-                    Config.rebirthRemote = ui
-                    notify("✅ Rebirth Button", "Trouvé: " .. ui.Name, 3)
+                    self.Config.rebirthRemote = ui
+                    self:Notify("✅ Rebirth Button", "Trouvé: " .. ui.Name, 3)
                     break
                 end
             end
         end
     end
+    
+    self.Config.purchaseRemote = ReplicatedStorage:FindFirstChild("PurchasePack")
+    self.Config.foreverPackRequest = ReplicatedStorage:FindFirstChild("ForeverPackRequest")
+    self.Config.foreverPackClaim = ReplicatedStorage:FindFirstChild("ForeverPackClaim")
+    self.Config.petAttackEvent = ReplicatedStorage:FindFirstChild("PetAttackEvent")
 end
 
--- ============================================
--- AUTO FUNCTIONS
--- ============================================
+function CheatLogic:ExecuteRemote(remote)
+    if not remote then return false end
+    
+    pcall(function()
+        if remote:IsA("RemoteEvent") then
+            remote:FireServer()
+        elseif remote:IsA("RemoteFunction") then
+            remote:InvokeServer()
+        elseif remote:IsA("TextButton") then
+            for _, connection in pairs(getconnections(remote.MouseButton1Click)) do
+                connection:Fire()
+            end
+        end
+    end)
+    
+    return true
+end
 
-local function autoClick()
-    while Config.AutoClick do
-        pcall(function()
-            if Config.clickRemote then
-                if Config.clickRemote:IsA("RemoteEvent") then
-                    Config.clickRemote:FireServer()
-                elseif Config.clickRemote:IsA("RemoteFunction") then
-                    Config.clickRemote:InvokeServer()
-                elseif Config.clickRemote:IsA("TextButton") then
-                    for _, connection in pairs(getconnections(Config.clickRemote.MouseButton1Click)) do
-                        connection:Fire()
-                    end
+function CheatLogic:StartAutoClick()
+    self.Config.AutoClick = true
+    
+    task.spawn(function()
+        while self.Config.AutoClick do
+            self:ExecuteRemote(self.Config.clickRemote)
+            task.wait(self.Config.ClickSpeed)
+        end
+    end)
+end
+
+function CheatLogic:StopAutoClick()
+    self.Config.AutoClick = false
+end
+
+function CheatLogic:StartAutoRebirth()
+    self.Config.AutoRebirth = true
+    
+    task.spawn(function()
+        while self.Config.AutoRebirth do
+            self:ExecuteRemote(self.Config.rebirthRemote)
+            task.wait(self.Config.RebirthDelay)
+        end
+    end)
+end
+
+function CheatLogic:StopAutoRebirth()
+    self.Config.AutoRebirth = false
+end
+
+function CheatLogic:StartAutoClaimPacks()
+    self.Config.AutoClaimPacks = true
+    
+    task.spawn(function()
+        while self.Config.AutoClaimPacks do
+            pcall(function()
+                if self.Config.foreverPackClaim then
+                    self.Config.foreverPackClaim:FireServer()
+                    self.Stats.packsClaimed = self.Stats.packsClaimed + 1
                 end
-            end
-        end)
-        task.wait(Config.ClickSpeed)
-    end
-end
-
-local function autoRebirth()
-    while Config.AutoRebirth do
-        pcall(function()
-            if Config.rebirthRemote then
-                if Config.rebirthRemote:IsA("RemoteEvent") then
-                    Config.rebirthRemote:FireServer()
-                elseif Config.rebirthRemote:IsA("RemoteFunction") then
-                    Config.rebirthRemote:InvokeServer()
-                elseif Config.rebirthRemote:IsA("TextButton") then
-                    for _, connection in pairs(getconnections(Config.rebirthRemote.MouseButton1Click)) do
-                        connection:Fire()
-                    end
+                
+                if self.Config.foreverPackRequest then
+                    self.Config.foreverPackRequest:FireServer()
                 end
-            end
-        end)
-        task.wait(Config.RebirthDelay)
-    end
-end
-
-local function autoClaimPacks()
-    while Config.AutoClaimPacks do
-        pcall(function()
-            -- Claim ForeverPack
-            if Config.foreverPackClaim then
-                Config.foreverPackClaim:FireServer()
-                Stats.packsClaimed = Stats.packsClaimed + 1
-            end
-            
-            -- Request ForeverPack
-            if Config.foreverPackRequest then
-                Config.foreverPackRequest:FireServer()
-            end
-            
-            -- Try to claim all rewards
-            for _, ui in ipairs(gui:GetDescendants()) do
-                if ui:IsA("TextButton") then
-                    local name = ui.Name:lower()
-                    local text = ui.Text:lower()
-                    
-                    if (name:find("claim") or text:find("claim")) and ui.Visible then
-                        for _, connection in pairs(getconnections(ui.MouseButton1Click)) do
-                            connection:Fire()
-                        end
-                    end
-                end
-            end
-        end)
-        task.wait(Config.ClaimDelay)
-    end
-end
-
-local function autoPetFarm()
-    while Config.AutoPetFarm do
-        pcall(function()
-            if Config.petAttackEvent then
-                Config.petAttackEvent:FireServer()
-            end
-        end)
-        task.wait(0.1)
-    end
-end
-
-local function autoBuyEggs()
-    while Config.AutoBuyEggs do
-        pcall(function()
-            -- Find and click egg buy buttons
-            local storeUI = gui.Tabs and gui.Tabs:FindFirstChild("Store")
-            if storeUI then
-                for _, desc in ipairs(storeUI:GetDescendants()) do
-                    if desc:IsA("TextButton") then
-                        local name = desc.Name:lower()
-                        local text = desc.Text:lower()
+                
+                for _, ui in ipairs(gui:GetDescendants()) do
+                    if ui:IsA("TextButton") then
+                        local name = ui.Name:lower()
+                        local text = ui.Text:lower()
                         
-                        if name:find("buy") and desc.Visible then
-                            for _, connection in pairs(getconnections(desc.MouseButton1Click)) do
+                        if (name:find("claim") or text:find("claim")) and ui.Visible then
+                            for _, connection in pairs(getconnections(ui.MouseButton1Click)) do
                                 connection:Fire()
                             end
-                            Stats.eggsHatched = Stats.eggsHatched + 1
-                            task.wait(0.5)
                         end
                     end
                 end
+            end)
+            task.wait(self.Config.ClaimDelay)
+        end
+    end)
+end
+
+function CheatLogic:StopAutoClaimPacks()
+    self.Config.AutoClaimPacks = false
+end
+
+function CheatLogic:StartAutoPetFarm()
+    self.Config.AutoPetFarm = true
+    
+    task.spawn(function()
+        while self.Config.AutoPetFarm do
+            self:ExecuteRemote(self.Config.petAttackEvent)
+            task.wait(0.1)
+        end
+    end)
+end
+
+function CheatLogic:StopAutoPetFarm()
+    self.Config.AutoPetFarm = false
+end
+
+function CheatLogic:StartAutoBuyEggs()
+    self.Config.AutoBuyEggs = true
+    
+    task.spawn(function()
+        while self.Config.AutoBuyEggs do
+            pcall(function()
+                local storeUI = gui.Tabs and gui.Tabs:FindFirstChild("Store")
+                if storeUI then
+                    for _, desc in ipairs(storeUI:GetDescendants()) do
+                        if desc:IsA("TextButton") then
+                            local name = desc.Name:lower()
+                            local text = desc.Text:lower()
+                            
+                            if name:find("buy") and desc.Visible then
+                                for _, connection in pairs(getconnections(desc.MouseButton1Click)) do
+                                    connection:Fire()
+                                end
+                                self.Stats.eggsHatched = self.Stats.eggsHatched + 1
+                                task.wait(0.5)
+                            end
+                        end
+                    end
+                end
+            end)
+            task.wait(2)
+        end
+    end)
+end
+
+function CheatLogic:StopAutoBuyEggs()
+    self.Config.AutoBuyEggs = false
+end
+
+function CheatLogic:ClaimForeverPack()
+    if self.Config.foreverPackClaim then
+        self.Config.foreverPackClaim:FireServer()
+        return true
+    end
+    return false
+end
+
+function CheatLogic:RequestForeverPack()
+    if self.Config.foreverPackRequest then
+        self.Config.foreverPackRequest:FireServer()
+        return true
+    end
+    return false
+end
+
+function CheatLogic:ClaimAllVisibleRewards()
+    local claimed = 0
+    pcall(function()
+        for _, ui in ipairs(gui:GetDescendants()) do
+            if ui:IsA("TextButton") and ui.Visible then
+                local name = ui.Name:lower()
+                local text = ui.Text:lower()
+                
+                if name:find("claim") or text:find("claim") then
+                    for _, connection in pairs(getconnections(ui.MouseButton1Click)) do
+                        connection:Fire()
+                        claimed = claimed + 1
+                    end
+                end
             end
+        end
+    end)
+    return claimed
+end
+
+function CheatLogic:ShowHiddenUIs()
+    local count = 0
+    for _, ui in ipairs(gui:GetChildren()) do
+        if ui:IsA("ScreenGui") and not ui.Enabled then
+            ui.Enabled = true
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function CheatLogic:FireAllPurchaseRemotes()
+    if self.Config.purchaseRemote then
+        self.Config.purchaseRemote:FireServer("Free", 0)
+        self.Config.purchaseRemote:FireServer("ForeverPack", 0)
+        return true
+    end
+    return false
+end
+
+function CheatLogic:SpamAllObfuscatedRemotes()
+    local obfFolder = ReplicatedStorage:FindFirstChild("8b37e5ec-5fad-4ce6-b47e-4504b6dd4200")
+    if obfFolder then
+        local eventsFolder = obfFolder:FindFirstChild("Events")
+        if eventsFolder then
+            for _, remote in ipairs(eventsFolder:GetChildren()) do
+                self:ExecuteRemote(remote)
+                task.wait(0.1)
+            end
+            return true
+        end
+    end
+    return false
+end
+
+function CheatLogic:Initialize()
+    self:Notify("🚀 TapSim Auto-Farm", "Initialisation...", 3)
+    
+    task.wait(2)
+    self:FindObfuscatedRemotes()
+    
+    task.spawn(function()
+        while task.wait(1) do
+            self.Stats.runtime = self.Stats.runtime + 1
+            self:UpdateStats()
+        end
+    end)
+    
+    self:Notify("✅ Loaded", "TapSim Auto-Farm ready!", 3)
+    
+    print("=" .. string.rep("=", 60))
+    print("TapSim Auto-Farm - Loaded Successfully")
+    print("Remotes found:")
+    print("  Click:", self.Config.clickRemote and self.Config.clickRemote.Name or "NOT FOUND")
+    print("  Rebirth:", self.Config.rebirthRemote and self.Config.rebirthRemote.Name or "NOT FOUND")
+    print("  Purchase:", self.Config.purchaseRemote and "OK" or "NOT FOUND")
+    print("  ForeverPack:", self.Config.foreverPackClaim and "OK" or "NOT FOUND")
+    print("  PetAttack:", self.Config.petAttackEvent and "OK" or "NOT FOUND")
+    print("=" .. string.rep("=", 60))
+end
+
+-- ============================================
+-- RAYFIELD UI
+-- ============================================
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "🚀 TapSim Auto-Farm AFK",
+    Icon = 0,
+    LoadingTitle = "TapSim Exploit",
+    LoadingSubtitle = "by maxoupixo4",
+    ShowText = "TapSim",
+    Theme = "Default",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = nil,
+        FileName = "TapSimConfig"
+    }
+})
+
+-- Setup callbacks
+CheatLogic.Callbacks.onNotify = function(title, content, duration)
+    Rayfield:Notify({
+        Title = title,
+        Content = content,
+        Duration = duration or 3,
+        Image = "activity"
+    })
+end
+
+local StatsLabel = nil
+
+CheatLogic.Callbacks.onStatsUpdate = function(stats)
+    if StatsLabel then
+        pcall(function()
+            StatsLabel:Set(string.format(
+                "📊 Clicks: %s | Rebirths: %s | Runtime: %ds",
+                tostring(stats.clicks),
+                tostring(stats.rebirths),
+                stats.runtime
+            ))
         end)
-        task.wait(2)
     end
 end
 
 -- ============================================
--- UI TABS
+-- MAIN TAB
 -- ============================================
 
--- Main Tab
-local MainTab = Window:CreateTab("🏠 Main", 4483362458)
+local MainTab = Window:CreateTab("🏠 Main", "home")
 
-local AutoClickToggle = MainTab:CreateToggle({
+MainTab:CreateToggle({
     Name = "🖱️ Auto Click",
     CurrentValue = false,
     Flag = "AutoClick",
     Callback = function(Value)
-        Config.AutoClick = Value
         if Value then
-            notify("✅ Auto Click", "Activé", 2)
-            task.spawn(autoClick)
+            CheatLogic:StartAutoClick()
+            CheatLogic:Notify("✅ Auto Click", "Activé", 2)
         else
-            notify("❌ Auto Click", "Désactivé", 2)
+            CheatLogic:StopAutoClick()
+            CheatLogic:Notify("❌ Auto Click", "Désactivé", 2)
         end
     end
 })
 
-local ClickSpeedSlider = MainTab:CreateSlider({
-    Name = "⚡ Click Speed (s)",
+MainTab:CreateSlider({
+    Name = "⚡ Click Speed",
     Range = {0.01, 1},
     Increment = 0.01,
+    Suffix = "s",
     CurrentValue = 0.1,
     Flag = "ClickSpeed",
     Callback = function(Value)
-        Config.ClickSpeed = Value
+        CheatLogic.Config.ClickSpeed = Value
     end
 })
 
-local AutoRebirthToggle = MainTab:CreateToggle({
+MainTab:CreateToggle({
     Name = "♻️ Auto Rebirth",
     CurrentValue = false,
     Flag = "AutoRebirth",
     Callback = function(Value)
-        Config.AutoRebirth = Value
         if Value then
-            notify("✅ Auto Rebirth", "Activé", 2)
-            task.spawn(autoRebirth)
+            CheatLogic:StartAutoRebirth()
+            CheatLogic:Notify("✅ Auto Rebirth", "Activé", 2)
         else
-            notify("❌ Auto Rebirth", "Désactivé", 2)
+            CheatLogic:StopAutoRebirth()
+            CheatLogic:Notify("❌ Auto Rebirth", "Désactivé", 2)
         end
     end
 })
 
-local RebirthDelaySlider = MainTab:CreateSlider({
-    Name = "⏱️ Rebirth Delay (s)",
+MainTab:CreateSlider({
+    Name = "⏱️ Rebirth Delay",
     Range = {0.5, 10},
     Increment = 0.5,
+    Suffix = "s",
     CurrentValue = 1,
     Flag = "RebirthDelay",
     Callback = function(Value)
-        Config.RebirthDelay = Value
+        CheatLogic.Config.RebirthDelay = Value
     end
 })
 
 MainTab:CreateDivider()
 
-local StatsLabel = MainTab:CreateLabel("📊 Stats: Loading...")
+StatsLabel = MainTab:CreateLabel("📊 Stats: Loading...")
 
--- Farm Tab
-local FarmTab = Window:CreateTab("🌾 Farm", 4483362458)
+-- ============================================
+-- FARM TAB
+-- ============================================
 
-local AutoPetFarmToggle = FarmTab:CreateToggle({
+local FarmTab = Window:CreateTab("🌾 Farm", "sprout")
+
+FarmTab:CreateToggle({
     Name = "🐾 Auto Pet Farm",
     CurrentValue = false,
     Flag = "AutoPetFarm",
     Callback = function(Value)
-        Config.AutoPetFarm = Value
         if Value then
-            notify("✅ Pet Farm", "Activé", 2)
-            task.spawn(autoPetFarm)
+            CheatLogic:StartAutoPetFarm()
+            CheatLogic:Notify("✅ Pet Farm", "Activé", 2)
         else
-            notify("❌ Pet Farm", "Désactivé", 2)
+            CheatLogic:StopAutoPetFarm()
+            CheatLogic:Notify("❌ Pet Farm", "Désactivé", 2)
         end
     end
 })
 
-local AutoClaimPacksToggle = FarmTab:CreateToggle({
+FarmTab:CreateToggle({
     Name = "🎁 Auto Claim Packs",
     CurrentValue = false,
     Flag = "AutoClaimPacks",
     Callback = function(Value)
-        Config.AutoClaimPacks = Value
         if Value then
-            notify("✅ Auto Claim", "Activé", 2)
-            task.spawn(autoClaimPacks)
+            CheatLogic:StartAutoClaimPacks()
+            CheatLogic:Notify("✅ Auto Claim", "Activé", 2)
         else
-            notify("❌ Auto Claim", "Désactivé", 2)
+            CheatLogic:StopAutoClaimPacks()
+            CheatLogic:Notify("❌ Auto Claim", "Désactivé", 2)
         end
     end
 })
 
-local AutoBuyEggsToggle = FarmTab:CreateToggle({
+FarmTab:CreateToggle({
     Name = "🥚 Auto Buy Eggs",
     CurrentValue = false,
     Flag = "AutoBuyEggs",
     Callback = function(Value)
-        Config.AutoBuyEggs = Value
         if Value then
-            notify("✅ Auto Buy Eggs", "Activé", 2)
-            task.spawn(autoBuyEggs)
+            CheatLogic:StartAutoBuyEggs()
+            CheatLogic:Notify("✅ Auto Buy Eggs", "Activé", 2)
         else
-            notify("❌ Auto Buy Eggs", "Désactivé", 2)
+            CheatLogic:StopAutoBuyEggs()
+            CheatLogic:Notify("❌ Auto Buy Eggs", "Désactivé", 2)
         end
     end
 })
 
--- Shop Tab
-local ShopTab = Window:CreateTab("🛒 Shop", 4483362458)
+-- ============================================
+-- SHOP TAB
+-- ============================================
+
+local ShopTab = Window:CreateTab("🛒 Shop", "shopping-cart")
 
 ShopTab:CreateButton({
     Name = "💎 Claim Forever Pack",
     Callback = function()
-        pcall(function()
-            if Config.foreverPackClaim then
-                Config.foreverPackClaim:FireServer()
-                notify("✅ Forever Pack", "Claimed!", 2)
-            end
-        end)
+        if CheatLogic:ClaimForeverPack() then
+            CheatLogic:Notify("✅ Forever Pack", "Claimed!", 2)
+        else
+            CheatLogic:Notify("❌ Error", "Remote not found", 2)
+        end
     end
 })
 
 ShopTab:CreateButton({
     Name = "📦 Request Forever Pack",
     Callback = function()
-        pcall(function()
-            if Config.foreverPackRequest then
-                Config.foreverPackRequest:FireServer()
-                notify("✅ Request", "Envoyé!", 2)
-            end
-        end)
+        if CheatLogic:RequestForeverPack() then
+            CheatLogic:Notify("✅ Request", "Envoyé!", 2)
+        else
+            CheatLogic:Notify("❌ Error", "Remote not found", 2)
+        end
     end
 })
 
 ShopTab:CreateButton({
     Name = "🎁 Claim All Visible Rewards",
     Callback = function()
-        local claimed = 0
-        pcall(function()
-            for _, ui in ipairs(gui:GetDescendants()) do
-                if ui:IsA("TextButton") and ui.Visible then
-                    local name = ui.Name:lower()
-                    local text = ui.Text:lower()
-                    
-                    if name:find("claim") or text:find("claim") then
-                        for _, connection in pairs(getconnections(ui.MouseButton1Click)) do
-                            connection:Fire()
-                            claimed = claimed + 1
-                        end
-                    end
-                end
-            end
-        end)
-        notify("✅ Claimed", claimed .. " rewards!", 3)
+        local claimed = CheatLogic:ClaimAllVisibleRewards()
+        CheatLogic:Notify("✅ Claimed", claimed .. " rewards!", 3)
     end
 })
 
--- Misc Tab
-local MiscTab = Window:CreateTab("⚙️ Misc", 4483362458)
+-- ============================================
+-- MISC TAB
+-- ============================================
+
+local MiscTab = Window:CreateTab("⚙️ Misc", "settings")
 
 MiscTab:CreateButton({
     Name = "🔄 Re-scan Remotes",
     Callback = function()
-        findObfuscatedRemotes()
+        CheatLogic:FindObfuscatedRemotes()
     end
 })
 
 MiscTab:CreateButton({
     Name = "👁️ Show Hidden UIs",
     Callback = function()
-        local count = 0
-        for _, ui in ipairs(gui:GetChildren()) do
-            if ui:IsA("ScreenGui") and not ui.Enabled then
-                ui.Enabled = true
-                count = count + 1
-            end
-        end
-        notify("✅ UI Unlocked", count .. " UIs activés", 3)
+        local count = CheatLogic:ShowHiddenUIs()
+        CheatLogic:Notify("✅ UI Unlocked", count .. " UIs activés", 3)
     end
 })
 
 MiscTab:CreateButton({
     Name = "🔥 Fire All Purchase Remotes",
     Callback = function()
-        pcall(function()
-            if Config.purchaseRemote then
-                Config.purchaseRemote:FireServer("Free", 0)
-                Config.purchaseRemote:FireServer("ForeverPack", 0)
-                notify("✅ Purchase", "Remotes fired!", 2)
-            end
-        end)
+        if CheatLogic:FireAllPurchaseRemotes() then
+            CheatLogic:Notify("✅ Purchase", "Remotes fired!", 2)
+        else
+            CheatLogic:Notify("❌ Error", "Remote not found", 2)
+        end
     end
 })
 
@@ -473,62 +605,17 @@ MiscTab:CreateLabel("⚠️ Experimental Features")
 MiscTab:CreateButton({
     Name = "💣 Spam All Obfuscated Remotes",
     Callback = function()
-        notify("⚠️ Warning", "Spamming all remotes...", 3)
-        local obfFolder = ReplicatedStorage:FindFirstChild("8b37e5ec-5fad-4ce6-b47e-4504b6dd4200")
-        if obfFolder then
-            local eventsFolder = obfFolder:FindFirstChild("Events")
-            if eventsFolder then
-                for _, remote in ipairs(eventsFolder:GetChildren()) do
-                    pcall(function()
-                        if remote:IsA("RemoteEvent") then
-                            remote:FireServer()
-                        elseif remote:IsA("RemoteFunction") then
-                            remote:InvokeServer()
-                        end
-                    end)
-                    task.wait(0.1)
-                end
-            end
+        CheatLogic:Notify("⚠️ Warning", "Spamming all remotes...", 3)
+        if CheatLogic:SpamAllObfuscatedRemotes() then
+            CheatLogic:Notify("✅ Done", "All remotes fired!", 2)
+        else
+            CheatLogic:Notify("❌ Error", "Could not find remotes", 2)
         end
-        notify("✅ Done", "All remotes fired!", 2)
     end
 })
 
 -- ============================================
--- INIT
+-- INITIALIZATION
 -- ============================================
 
-notify("🚀 TapSim Auto-Farm", "Chargement...", 3)
-
--- Find remotes on startup
-task.wait(2)
-findObfuscatedRemotes()
-
--- Stats update loop
-task.spawn(function()
-    while task.wait(1) do
-        Stats.runtime = Stats.runtime + 1
-        updateStats()
-        
-        -- Update stats label
-        pcall(function()
-            StatsLabel:Set(string.format(
-                "📊 Clicks: %s | Rebirths: %s | Runtime: %ds",
-                tostring(Stats.clicks),
-                tostring(Stats.rebirths),
-                Stats.runtime
-            ))
-        end)
-    end
-end)
-
-notify("✅ Loaded", "TapSim Auto-Farm ready!", 3)
-print("=" .. string.rep("=", 60))
-print("TapSim Auto-Farm AFK - Loaded Successfully")
-print("Remotes found:")
-print("  Click:", Config.clickRemote and Config.clickRemote.Name or "NOT FOUND")
-print("  Rebirth:", Config.rebirthRemote and Config.rebirthRemote.Name or "NOT FOUND")
-print("  Purchase:", Config.purchaseRemote and "OK" or "NOT FOUND")
-print("  ForeverPack:", Config.foreverPackClaim and "OK" or "NOT FOUND")
-print("  PetAttack:", Config.petAttackEvent and "OK" or "NOT FOUND")
-print("=" .. string.rep("=", 60))
+CheatLogic:Initialize()
